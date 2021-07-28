@@ -1,0 +1,1722 @@
+BACKUP ~BG_Travel/BACKUP~ 
+AUTHOR ~zed_nocear@wp.pl	(http://athkatla.cob-bg.pl/viewtopic.php?p=114896&highlight=#114896)~
+
+VERSION ~v2.1~
+
+README ~BG_Travel/Readme-TravelBG.%LANGUAGE%.txt~
+
+
+
+ALWAYS
+///////////////////////////////////////////////////////////////////////////////A1
+//znacznik instalacji komponentu
+COPY ~BG_Travel/BACKUP/TWM-detect.CoB~ ~override/TWM-66TravelBGa.CoB~
+
+///////////////////////////////////////////////////////////////////////////////A2
+// Detekcja typu gry i definicja zmiennych dla BG1, BGEE, BGT, Tutu i EET
+ACTION_IF GAME_IS ~bgt~
+  THEN BEGIN //BGT
+    PRINT @602
+    OUTER_SPRINT "Z!AreaPrefix" ~AR~
+    OUTER_SPRINT "Z!AreaNumber1" ~7200~
+    OUTER_SPRINT "Z!AreaNumber2" ~7300~
+    OUTER_SPRINT "Z!AreaNumber3" ~7400~
+    OUTER_SPRINT "Z!AreaNumber4" ~7600~
+    OUTER_SPRINT "Z!AreaNumber5" ~7700~
+    OUTER_SPRINT "Z!AreaNumber6" ~7800~
+    OUTER_SPRINT "Z!AreaNumber7" ~8000~
+    OUTER_SPRINT "Z!AreaNumber8" ~8100~
+    OUTER_SPRINT "Z!AreaNumber9" ~8200~
+    OUTER_SPRINT "Z!AreaNumberA" ~W500~
+    OUTER_SPRINT "Z!AreaNumberB" ~W000~
+  END //End for BGT
+  ELSE BEGIN
+    OUTER_SPRINT "Z!AreaNumber1" ~0100~
+    OUTER_SPRINT "Z!AreaNumber2" ~0200~
+    OUTER_SPRINT "Z!AreaNumber3" ~0300~
+    OUTER_SPRINT "Z!AreaNumber4" ~0600~
+    OUTER_SPRINT "Z!AreaNumber5" ~0700~
+    OUTER_SPRINT "Z!AreaNumber6" ~0800~
+    OUTER_SPRINT "Z!AreaNumber7" ~1100~
+    OUTER_SPRINT "Z!AreaNumber8" ~1200~
+    OUTER_SPRINT "Z!AreaNumber9" ~1300~
+    OUTER_SPRINT "Z!AreaNumberA" ~1500~
+    OUTER_SPRINT "Z!AreaNumberB" ~2000~
+
+    ACTION_IF GAME_IS ~tutu tutu_totsc~ 
+      BEGIN //TUTU
+        PRINT @603 OUTER_SPRINT "Z!AreaPrefix" ~FW~ END
+      ELSE ACTION_IF GAME_IS ~bg1 bgee~ BEGIN //BG1 & BGEE
+        PRINT @604 OUTER_SPRINT "Z!AreaPrefix" ~AR~ END
+      ELSE ACTION_IF GAME_IS ~eet~ BEGIN //EET
+        PRINT @606 OUTER_SPRINT "Z!AreaPrefix" ~BG~ END 
+      ELSE BEGIN FAIL @605 END
+
+  END //End for non-BGT
+
+////////////////////////////////////////////////////////////////////////A4
+// definicja funkcji wstawiaj¹cej "entrances" do map ARE na potrzeby TWM
+DEFINE_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+  INT_VAR  "Z!entrance_Xpos" = 0
+           "Z!entrance_Ypos" = 0
+           "Z!entrance_face" = 0
+/* tutaj, jak i w deklaracji funkcji poni¿ej trzeba by³o wykomentowaæ
+ zmienne tekstowe: definicja zmiennej w funkcji przykrywa wartoœæ 
+ globalnej zmiennej o tej samej nazwie, zaœ w funkcji mo¿na zadeklarowaæ
+ tylko sta³¹ wartoœæ, a nie wyra¿enie zale¿ne od wartoœci innych
+ zmiennych - kuriozalne, ale tylko tak dzia³a prawid³owo */
+//  STR_VAR  "Z!entrance_name" = ~Z!Exit~
+BEGIN
+  READ_LONG 0x54 "Z!offset_actors"
+  READ_LONG 0x5c "Z!offset_regions"
+  READ_LONG 0x60 "Z!offset_spawn"
+  READ_LONG 0x68 "Z!offset_entrances"
+  READ_LONG 0x6c "Z!count_entrances"
+  READ_LONG 0x70 "Z!offset_containers"
+  READ_LONG 0x78 "Z!offset_items"
+  READ_LONG 0x7c "Z!offset_vertices"
+  READ_LONG 0x84 "Z!offset_ambients"
+  READ_LONG 0x88 "Z!offset_variables"
+  READ_LONG 0xa0 "Z!offset_bitmask"
+  READ_LONG 0xa8 "Z!offset_doors"
+  READ_LONG 0xb0 "Z!offset_animation"
+  READ_LONG 0xb8 "Z!offset_tiled"
+  READ_LONG 0xbc "Z!offset_song"
+  READ_LONG 0xc0 "Z!offset_rest"
+  READ_LONG 0xc4 "Z!offset_automap_notes"
+  READ_LONG 0xcc "Z!offset_projectiles"
+
+  SET "Z!new_offset" = "%Z!offset_entrances%" + ("%Z!count_entrances%" * 0x68)
+  INSERT_BYTES "%Z!new_offset%" 0x68 //new block of entrance
+  WRITE_EVALUATED_ASCII "%Z!new_offset%" "%Z!entrance_name%" (32) // name of entrance
+  WRITE_SHORT ("%Z!new_offset%" + 0x20) "%Z!entrance_Xpos%" // X coordinate
+  WRITE_SHORT ("%Z!new_offset%" + 0x22) "%Z!entrance_Ypos%" // Y coordinate
+  WRITE_SHORT ("%Z!new_offset%" + 0x24) "%Z!entrance_face%" // Face orientation
+  WRITE_SHORT ("%Z!new_offset%" + 0x28) 0x40 // Unknown but possible important
+  WRITE_LONG 0x6c  ("%Z!count_entrances%" + 1) // one entrance more on the end of list
+
+  PATCH_IF NOT ("%Z!offset_actors%" < "%Z!offset_entrances%") THEN BEGIN WRITE_LONG 0x54 ("%Z!offset_actors%" + 0x68) END
+  PATCH_IF NOT ("%Z!offset_regions%" < "%Z!offset_entrances%") THEN BEGIN WRITE_LONG 0x5c ("%Z!offset_regions%" + 0x68) END
+  PATCH_IF NOT ("%Z!offset_spawn%" < "%Z!offset_entrances%") THEN BEGIN WRITE_LONG 0x60 ("%Z!offset_spawn%" + 0x68) END
+  PATCH_IF NOT ("%Z!offset_containers%" < "%Z!offset_entrances%") THEN BEGIN WRITE_LONG 0x70 ("%Z!offset_containers%" + 0x68) END
+  PATCH_IF NOT ("%Z!offset_items%" < "%Z!offset_entrances%") THEN BEGIN WRITE_LONG 0x78 ("%Z!offset_items%" + 0x68) END
+  PATCH_IF NOT ("%Z!offset_vertices%" < "%Z!offset_entrances%") THEN BEGIN WRITE_LONG 0x7c ("%Z!offset_vertices%" + 0x68) END
+  PATCH_IF NOT ("%Z!offset_ambients%" < "%Z!offset_entrances%") THEN BEGIN WRITE_LONG 0x84 ("%Z!offset_ambients%" + 0x68) END
+  PATCH_IF NOT ("%Z!offset_variables%" < "%Z!offset_entrances%") THEN BEGIN WRITE_LONG 0x88 ("%Z!offset_variables%" + 0x68) END
+  PATCH_IF NOT ("%Z!offset_bitmask%" < "%Z!offset_entrances%") THEN BEGIN WRITE_LONG 0xa0 ("%Z!offset_bitmask%" + 0x68) END
+  PATCH_IF NOT ("%Z!offset_doors%" < "%Z!offset_entrances%") THEN BEGIN WRITE_LONG 0xa8 ("%Z!offset_doors%" + 0x68) END
+  PATCH_IF NOT ("%Z!offset_animation%" < "%Z!offset_entrances%") THEN BEGIN WRITE_LONG 0xb0 ("%Z!offset_animation%" + 0x68) END
+  PATCH_IF NOT ("%Z!offset_tiled%" < "%Z!offset_entrances%") THEN BEGIN WRITE_LONG 0xb8 ("%Z!offset_tiled%" + 0x68) END
+  PATCH_IF NOT ("%Z!offset_song%" < "%Z!offset_entrances%") THEN BEGIN WRITE_LONG 0xbc ("%Z!offset_song%" + 0x68) END
+  PATCH_IF NOT ("%Z!offset_rest%" < "%Z!offset_entrances%") THEN BEGIN WRITE_LONG 0xc0 ("%Z!offset_rest%" + 0x68) END
+  PATCH_IF NOT ("%Z!offset_automap_notes%" < "%Z!offset_entrances%") THEN BEGIN WRITE_LONG 0xc4 ("%Z!offset_automap_notes%" + 0x68) END
+  PATCH_IF NOT ("%Z!offset_projectiles%" < "%Z!offset_entrances%") THEN BEGIN WRITE_LONG 0xcc ("%Z!offset_projectiles%" + 0x68) END
+END
+
+////////////////////////////////////////////////////////////////////////A5
+// definicja uproszczonej funkcji wstawiaj¹cej "travel regions"
+// do map ARE na potrzeby TWM
+DEFINE_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+  INT_VAR  "Z!travel_Xl" = 0
+           "Z!travel_Xh" = 0
+           "Z!travel_Yl" = 0
+           "Z!travel_Yh" = 0
+//  STR_VAR  "Z!entrance_area" = ~AR0000~
+//           "Z!entrance_name" = ~Z!Exit~
+//           "Z!travel_name" = ~Z!Travel~
+BEGIN
+ LAUNCH_PATCH_FUNCTION  ~ADD_AREA_REGION_TRIGGER~
+  INT_VAR
+  ab_RT_Type = 2 // Type of trigger // 0=proximity;1=info;2=travel
+  ab_RT_BbLX = "%Z!travel_Xl%" // Bounding Box - low x value - LEFT
+  ab_RT_BbLY = "%Z!travel_Yl%" // Bounding Box - low y value - TOP
+  ab_RT_BbHX = "%Z!travel_Xh%" // Bounding Box - High x value - RIGHT
+  ab_RT_BbHY = "%Z!travel_Yh%" // Bounding Box - High y value - BOTTOM
+  ab_RT_VxPr = 4  // Number of Vertex Pairs for current region
+  ab_RT_CuId = 34 // Cursor Index - points to a graphic in cursors.bam
+  ab_RT_Fbit = 4  // Flag bits set in bit format which are read right to left - 0=off; 1=on
+  ab_RT_Vx_X_0 = "%Z!travel_Xl%" // Point #0 X value
+  ab_RT_Vx_Y_0 = "%Z!travel_Yl%" // Point #0 Y value
+  ab_RT_Vx_X_1 = "%Z!travel_Xh%"
+  ab_RT_Vx_Y_1 = "%Z!travel_Yl%"
+  ab_RT_Vx_X_2 = "%Z!travel_Xh%"
+  ab_RT_Vx_Y_2 = "%Z!travel_Yh%"
+  ab_RT_Vx_X_3 = "%Z!travel_Xl%"
+  ab_RT_Vx_Y_3 = "%Z!travel_Yh%"
+    //need for compatibility with bug in Weidu 237
+    ab_RT_TDtD = 0 //Trap Detection Difficulty
+    ab_RT_TRmD = 0 //Trap Removal Difficulty
+    ab_RT_TSet = 0 //Trap is set - 0=no; 1=yes
+    ab_RT_TDet = 0 //Trap is detected - 0=no; 1=yes
+    ab_RT_LPoX = 0 //Launch Point X
+    ab_RT_LPoY = 0 //Launch Point Y
+    ab_RT_ALPX = 0 //Alternate Launch Point X
+    ab_RT_ALPY = 0 //Alternate Launch Point Y
+  STR_VAR
+  ab_RT_Name = EVAL ~%Z!travel_name%~ // Name to assign to new region
+  ab_RT_Dest = EVAL ~%Z!entrance_area%~ // Destination Area
+  ab_RT_EntN = EVAL ~%Z!entrance_name%~ // Entrance Name
+    //need for compatibility with bug in Weidu 237
+    ab_RT_KeyI = ~~ //Key Item
+    ab_RT_Rbcs = ~~ //Region Script file
+ END
+END
+END//END OF ALWAYS
+
+
+AUTO_TRA ~TWM_Pack/Translations/%s~
+
+LANGUAGE ~English~    
+         ~English~ 
+         ~BG_Travel/Translations/English/setup-EN.tra~
+
+LANGUAGE ~Polski~
+         ~Polski~
+         ~BG_Travel/Translations/Polski/setup-PL.tra~
+
+LANGUAGE ~Deutsch~
+         ~Deutsch~
+         ~BG_Travel/Translations/Deutsch/setup-DE.tra~
+
+
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+//     ~New travel system between Baldur's Gate City areas~
+///////////////////////////////////////////////////////////////////////
+BEGIN @660002  //~Pe³na wersja komponentu~
+REQUIRE_PREDICATE NOT ((FILE_EXISTS_IN_GAME ~TWM-66TravelBG.CoB~) OR
+                      (FILE_EXISTS_IN_GAME ~TWM-06TravelBG.CoB~)) @660001
+SUBCOMPONENT @66
+DESIGNATED 66
+
+
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+// u¿ycie zdefiniowanych funkcji - wprowadzenie nowych "entrance"
+// i "travel regions" do lokacji Wrót Baldura dla BG1/BGEE/BGT/TUTU
+
+/////////////////////////////////////AR0100
+COPY_EXISTING_REGEXP ~%Z!AreaPrefix%%Z!AreaNumber1%.are~ ~override~
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber1%e03~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 4006
+             "Z!entrance_Ypos" = 2720
+             "Z!entrance_face" = 2
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber1%s01~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 1090
+             "Z!entrance_Ypos" = 3077
+             "Z!entrance_face" = 10
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber1%s02~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 1580
+             "Z!entrance_Ypos" = 3077
+             "Z!entrance_face" = 6
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber1%s04~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 2990
+             "Z!entrance_Ypos" = 3077
+             "Z!entrance_face" = 6
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber1%s05~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 3840
+             "Z!entrance_Ypos" = 3077
+             "Z!entrance_face" = 10
+  END
+
+//not needed in BGEE
+PATCH_IF NOT FILE_CONTAINS_EVALUATED (~%Z!AreaPrefix%%Z!AreaNumber1%.are~ ~Areatrans01~)
+  THEN BEGIN
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber1%e01~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 4100
+             "Z!entrance_Ypos" = 900
+             "Z!entrance_face" = 4
+  END
+  
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber2%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber2%w01~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber2%w01~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4256
+             "Z!travel_Xh" = 4287
+             "Z!travel_Yl" = 648
+             "Z!travel_Yh" = 1031
+  END
+END //PATCH_IF
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber2%~
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber2%w~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber2%w02~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4256
+             "Z!travel_Xh" = 4287
+             "Z!travel_Yl" = 1548
+             "Z!travel_Yh" = 1979
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber2%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber2%w03~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber2%w03~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4256
+             "Z!travel_Xh" = 4287
+             "Z!travel_Yl" = 2400
+             "Z!travel_Yh" = 2855
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber4%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber4%n01~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber4%n01~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 768
+             "Z!travel_Xh" = 1215
+             "Z!travel_Yl" = 3176
+             "Z!travel_Yh" = 3199
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber4%~
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber4%n~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber4%n02~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 1504
+             "Z!travel_Xh" = 1919
+             "Z!travel_Yl" = 3176
+             "Z!travel_Yh" = 3199
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber4%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber4%n03~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber4%n03~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 1984
+             "Z!travel_Xh" = 2543
+             "Z!travel_Yl" = 3176
+             "Z!travel_Yh" = 3199
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber4%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber4%n04~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber4%n04~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 2912
+             "Z!travel_Xh" = 3359
+             "Z!travel_Yl" = 3176
+             "Z!travel_Yh" = 3199
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber4%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber4%n05~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber4%n05~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 3360
+             "Z!travel_Xh" = 3967
+             "Z!travel_Yl" = 3176
+             "Z!travel_Yh" = 3199
+  END
+
+
+/////////////////////////////////////AR0200
+COPY_EXISTING_REGEXP ~%Z!AreaPrefix%%Z!AreaNumber2%.are~ ~override~
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber2%e09~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 4215
+             "Z!entrance_Ypos" = 1045
+             "Z!entrance_face" = 2
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber2%e09a~//new2!!!!!!!!!!!!
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 4263
+             "Z!entrance_Ypos" = 1620
+             "Z!entrance_face" = 6
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber2%e11~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 4200
+             "Z!entrance_Ypos" = 3040
+             "Z!entrance_face" = 6
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber2%s07~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 2000
+             "Z!entrance_Ypos" = 3051
+             "Z!entrance_face" = 8
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber2%s08~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 2900
+             "Z!entrance_Ypos" = 3051
+             "Z!entrance_face" = 10
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber2%s09~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 3780
+             "Z!entrance_Ypos" = 3051
+             "Z!entrance_face" = 10
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber2%w03~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 163
+             "Z!entrance_Ypos" = 2590
+             "Z!entrance_face" = 12
+  END
+
+//not needed in BGEE
+PATCH_IF NOT FILE_CONTAINS_EVALUATED (~%Z!AreaPrefix%%Z!AreaNumber2%.are~ ~Areatrans01~)
+  THEN BEGIN
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber2%w01~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 135
+             "Z!entrance_Ypos" = 900
+             "Z!entrance_face" = 12
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber1%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber1%e01~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber1%e01~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 0
+             "Z!travel_Xh" = 31
+             "Z!travel_Yl" = 624
+             "Z!travel_Yh" = 1187
+  END
+END //PATCH_IF
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber1%~
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber1%e~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber1%e02~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 0
+             "Z!travel_Xh" = 31
+             "Z!travel_Yl" = 1596
+             "Z!travel_Yh" = 2003
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber1%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber1%e03~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber1%e03~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 0
+             "Z!travel_Xh" = 31
+             "Z!travel_Yl" = 2436
+             "Z!travel_Yh" = 2843
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber3%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber3%w09~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber3%w09~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4384
+             "Z!travel_Xh" = 4415
+             "Z!travel_Yl" = 864
+             "Z!travel_Yh" = 1163
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber3%~//new!!!!!!!!!
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber3%w09a~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber3%w09a~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4384
+             "Z!travel_Xh" = 4415
+             "Z!travel_Yl" = 1499
+             "Z!travel_Yh" = 1582
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber3%~
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber3%w~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber3%w10~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4384
+             "Z!travel_Xh" = 4415
+             "Z!travel_Yl" = 1714
+             "Z!travel_Yh" = 2363
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber5%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%n06~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber5%n06~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 864
+             "Z!travel_Xh" = 1791
+             "Z!travel_Yl" = 3176
+             "Z!travel_Yh" = 3199
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber5%~
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber5%n~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber5%n07~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 1792
+             "Z!travel_Xh" = 2431
+             "Z!travel_Yl" = 3176
+             "Z!travel_Yh" = 3199
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber5%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%n08~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber5%n08~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 2656
+             "Z!travel_Xh" = 2927
+             "Z!travel_Yl" = 3176
+             "Z!travel_Yh" = 3199
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber5%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%n09~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber5%n09~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 3472
+             "Z!travel_Xh" = 3999
+             "Z!travel_Yl" = 3176
+             "Z!travel_Yh" = 3199
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber6%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber6%w11~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber6%w11a~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4384
+             "Z!travel_Xh" = 4415
+             "Z!travel_Yl" = 3012
+             "Z!travel_Yh" = 3199
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber6%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber6%w11~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber6%w11c~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4224
+             "Z!travel_Xh" = 4383
+             "Z!travel_Yl" = 3176
+             "Z!travel_Yh" = 3199
+  END
+
+
+/////////////////////////////////////AR0300
+COPY_EXISTING_REGEXP ~%Z!AreaPrefix%%Z!AreaNumber3%.are~ ~override~
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber3%s10~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 420
+             "Z!entrance_Ypos" = 3051
+             "Z!entrance_face" = 10
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber3%w09~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 170
+             "Z!entrance_Ypos" = 900
+             "Z!entrance_face" = 12
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber3%w09a~//new!!!!!!!!!!!!!
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 150
+             "Z!entrance_Ypos" = 1818
+             "Z!entrance_face" = 14
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber2%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber2%e09~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber2%e09~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 0
+             "Z!travel_Xh" = 31
+             "Z!travel_Yl" = 852
+             "Z!travel_Yh" = 1103
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber2%~//new2!!!!!!!!
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber2%e09a~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber2%e09a~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 0
+             "Z!travel_Xh" = 31
+             "Z!travel_Yl" = 1404
+             "Z!travel_Yh" = 1700
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber2%~
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber2%e~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber2%e10~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 0
+             "Z!travel_Xh" = 31
+             "Z!travel_Yl" = 1701
+             "Z!travel_Yh" = 2411
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber2%~//changed!!!!!
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber2%e11~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber2%e11a~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 0
+             "Z!travel_Xh" = 31
+             "Z!travel_Yl" = 2996
+             "Z!travel_Yh" = 3143
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber6%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber6%n10~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber6%n10~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 48
+             "Z!travel_Xh" = 575
+             "Z!travel_Yl" = 3176
+             "Z!travel_Yh" = 3199
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber6%~
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber6%n~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber6%n11~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 1760
+             "Z!travel_Xh" = 2335
+             "Z!travel_Yl" = 3176
+             "Z!travel_Yh" = 3199
+  END
+
+
+/////////////////////////////////////AR0600
+COPY_EXISTING_REGEXP ~%Z!AreaPrefix%%Z!AreaNumber4%.are~ ~override~
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber4%n01~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 1050
+             "Z!entrance_Ypos" = 122
+             "Z!entrance_face" = 2
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber4%n03~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 2250
+             "Z!entrance_Ypos" = 122
+             "Z!entrance_face" = 2
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber4%n04~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 3140
+             "Z!entrance_Ypos" = 122
+             "Z!entrance_face" = 14
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber4%n05~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 3690
+             "Z!entrance_Ypos" = 122
+             "Z!entrance_face" = 2
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber4%e04~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 4144
+             "Z!entrance_Ypos" = 510
+             "Z!entrance_face" = 6
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber4%e06~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 3970
+             "Z!entrance_Ypos" = 2740
+             "Z!entrance_face" = 4
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber1%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber1%s01~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber1%s01~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 768
+             "Z!travel_Xh" = 1375
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 23
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber1%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber1%s02~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber1%s02~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 1376
+             "Z!travel_Xh" = 1759
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 23
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber1%~//changed!!!!!
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber1%s~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber1%s03~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 2112
+             "Z!travel_Xh" = 2719
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 23
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber1%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber1%s04~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber1%s04~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 2848
+             "Z!travel_Xh" = 3263
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 23
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber1%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber1%s05~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber1%s05~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 3488
+             "Z!travel_Xh" = 4111
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 23
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber5%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%w04~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber5%w04~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4256
+             "Z!travel_Xh" = 4287
+             "Z!travel_Yl" = 444
+             "Z!travel_Yh" = 1151
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber5%~
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber5%w~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber5%w05~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4256
+             "Z!travel_Xh" = 4287
+             "Z!travel_Yl" = 1152
+             "Z!travel_Yh" = 2255
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber5%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%w06~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber5%w06a~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4256
+             "Z!travel_Xh" = 4287
+             "Z!travel_Yl" = 2736
+             "Z!travel_Yh" = 2855
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber5%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%w06~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber5%w06b~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4256
+             "Z!travel_Xh" = 4287
+             "Z!travel_Yl" = 3204
+             "Z!travel_Yh" = 3275
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber7%~
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber7%n~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber7%n12~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 3280
+             "Z!travel_Xh" = 3919
+             "Z!travel_Yl" = 3304
+             "Z!travel_Yh" = 3327
+  END
+
+
+/////////////////////////////////////AR0700
+COPY_EXISTING_REGEXP ~%Z!AreaPrefix%%Z!AreaNumber5%.are~ ~override~
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%n06~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 1370
+             "Z!entrance_Ypos" = 141
+             "Z!entrance_face" = 14
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%n08~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 2740
+             "Z!entrance_Ypos" = 300
+             "Z!entrance_face" = 2
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%n09~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 3690
+             "Z!entrance_Ypos" = 141
+             "Z!entrance_face" = 2
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%e12~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 4200
+             "Z!entrance_Ypos" = 980
+             "Z!entrance_face" = 2
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%e13~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 4200
+             "Z!entrance_Ypos" = 2100
+             "Z!entrance_face" = 2
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%s13~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 830
+             "Z!entrance_Ypos" = 3200
+             "Z!entrance_face" = 8
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%s14~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 1195
+             "Z!entrance_Ypos" = 2910
+             "Z!entrance_face" = 8
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%s16~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 3824
+             "Z!entrance_Ypos" = 3200
+             "Z!entrance_face" = 8
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%w04~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 150
+             "Z!entrance_Ypos" = 690
+             "Z!entrance_face" = 14
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%w06~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 150
+             "Z!entrance_Ypos" = 2490
+             "Z!entrance_face" = 12
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber2%~
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber2%s~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber2%s06~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 272
+             "Z!travel_Xh" = 1823
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 23
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber2%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber2%s07~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber2%s07~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 1824
+             "Z!travel_Xh" = 2463
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 23
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber2%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber2%s08~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber2%s08~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 2656
+             "Z!travel_Xh" = 3023
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 23
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber2%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber2%s09~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber2%s09~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 3488
+             "Z!travel_Xh" = 4383
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 23
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber4%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber4%e04~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber4%e04~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 0
+             "Z!travel_Xh" = 31
+             "Z!travel_Yl" = 384
+             "Z!travel_Yh" = 1043
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber4%~//changed!!!!!
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber4%e~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber4%e05~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 0
+             "Z!travel_Xh" = 31
+             "Z!travel_Yl" = 1045
+             "Z!travel_Yh" = 2243
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber4%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber4%e06~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber4%e06~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 0
+             "Z!travel_Xh" = 31
+             "Z!travel_Yl" = 2364
+             "Z!travel_Yh" = 3203
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber6%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber6%w11~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber6%w11b~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4384
+             "Z!travel_Xh" = 4415
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 383
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber6%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber6%w12~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber6%w12~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4384
+             "Z!travel_Xh" = 4415
+             "Z!travel_Yl" = 600
+             "Z!travel_Yh" = 1163
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber6%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber6%w13~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber6%w13~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4384
+             "Z!travel_Xh" = 4415
+             "Z!travel_Yl" = 1788
+             "Z!travel_Yh" = 2159
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber6%~
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber6%w~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber6%w14a~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4384
+             "Z!travel_Xh" = 4415
+             "Z!travel_Yl" = 2880
+             "Z!travel_Yh" = 3263
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber8%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber8%n13~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber8%n13~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 640
+             "Z!travel_Xh" = 1023
+             "Z!travel_Yl" = 3304
+             "Z!travel_Yh" = 3327
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber8%~
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber8%n~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber8%n14~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 1152
+             "Z!travel_Xh" = 1263
+             "Z!travel_Yl" = 3304
+             "Z!travel_Yh" = 3327
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber8%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber8%n15~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber8%n15~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 1392
+             "Z!travel_Xh" = 2639
+             "Z!travel_Yl" = 3304
+             "Z!travel_Yh" = 3327
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber8%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber8%n16~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber8%n16~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 3248
+             "Z!travel_Xh" = 4271
+             "Z!travel_Yl" = 3304
+             "Z!travel_Yh" = 3327
+  END
+
+
+/////////////////////////////////////AR0800
+COPY_EXISTING_REGEXP ~%Z!AreaPrefix%%Z!AreaNumber6%.are~ ~override~
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber6%n10~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 350
+             "Z!entrance_Ypos" = 148
+             "Z!entrance_face" = 0
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber6%s17~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 1045
+             "Z!entrance_Ypos" = 3166
+             "Z!entrance_face" = 6
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber6%s17a~//new3!!!!!!!!!!!!
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 1384
+             "Z!entrance_Ypos" = 3094
+             "Z!entrance_face" = 8
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber6%w11~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 151
+             "Z!entrance_Ypos" = 80
+             "Z!entrance_face" = 12
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber6%w12~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 151
+             "Z!entrance_Ypos" = 749
+             "Z!entrance_face" = 10
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber6%w13~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 151
+             "Z!entrance_Ypos" = 1860
+             "Z!entrance_face" = 10
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber2%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber2%e11~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber2%e11b~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 0
+             "Z!travel_Xh" = 31
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 155
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber3%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber3%s10~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber3%s10~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 32
+             "Z!travel_Xh" = 639
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 23
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber3%~
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber3%s~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber3%s11~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 1776
+             "Z!travel_Xh" = 2335
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 23
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber5%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%e12~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber5%e12~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 0
+             "Z!travel_Xh" = 31
+             "Z!travel_Yl" = 672
+             "Z!travel_Yh" = 911
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber5%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%e13~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber5%e13~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 0
+             "Z!travel_Xh" = 31
+             "Z!travel_Yl" = 1908
+             "Z!travel_Yh" = 2159
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber5%~
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber5%e~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber5%e14~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 0
+             "Z!travel_Xh" = 31
+             "Z!travel_Yl" = 2928
+             "Z!travel_Yh" = 3327
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber9%~
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber9%n~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber9%n17~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 960
+             "Z!travel_Xh" = 1599
+             "Z!travel_Yl" = 3304
+             "Z!travel_Yh" = 3327
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber9%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber9%n18~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber9%n18~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 2400
+             "Z!travel_Xh" = 2943
+             "Z!travel_Yl" = 3304
+             "Z!travel_Yh" = 3327
+  END
+
+
+/////////////////////////////////////AR1100
+COPY_EXISTING_REGEXP ~%Z!AreaPrefix%%Z!AreaNumber7%.are~ ~override~
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber7%e08~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 4101
+             "Z!entrance_Ypos" = 2090
+             "Z!entrance_face" = 4
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber7%e08a~//new4!!!!!!!!!!!!
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 3617
+             "Z!entrance_Ypos" = 2508
+             "Z!entrance_face" = 5
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber4%~
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber4%s~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber4%s12~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 3520
+             "Z!travel_Xh" = 3887
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 23
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber8%~//changed!!!!!
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber8%w~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber8%w07~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4256
+             "Z!travel_Xh" = 4287
+             "Z!travel_Yl" = 807
+             "Z!travel_Yh" = 1419
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber8%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber8%w08~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber8%w08~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4256
+             "Z!travel_Xh" = 4287
+             "Z!travel_Yl" = 1560
+             "Z!travel_Yh" = 2543
+  END
+
+
+/////////////////////////////////////AR1200
+COPY_EXISTING_REGEXP ~%Z!AreaPrefix%%Z!AreaNumber8%.are~ ~override~
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber8%n13~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 890
+             "Z!entrance_Ypos" = 144
+             "Z!entrance_face" = 14
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber8%n15~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 2080
+             "Z!entrance_Ypos" = 144
+             "Z!entrance_face" = 0
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber8%n16~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 3824
+             "Z!entrance_Ypos" = 235
+             "Z!entrance_face" = 0
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber8%e15~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 4293
+             "Z!entrance_Ypos" = 860
+             "Z!entrance_face" = 6
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber8%w08~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 144
+             "Z!entrance_Ypos" = 1910
+             "Z!entrance_face" = 14
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber5%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%s13~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber5%s13~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 528
+             "Z!travel_Xh" = 1023
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 23
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber5%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%s14~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber5%s14~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 1024
+             "Z!travel_Xh" = 1391
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 23
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber5%~
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber5%s~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber5%s15~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 1392
+             "Z!travel_Xh" = 2975
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 23
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber5%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%s16~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber5%s16~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 2976
+             "Z!travel_Xh" = 4383
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 23
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber6%~
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber6%w~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber6%w14b~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4384
+             "Z!travel_Xh" = 4415
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 323
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber7%~
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber7%e~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber7%e07~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 0
+             "Z!travel_Xh" = 31
+             "Z!travel_Yl" = 828
+             "Z!travel_Yh" = 1475
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber7%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber7%e08~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber7%e08~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 0
+             "Z!travel_Xh" = 31
+             "Z!travel_Yl" = 1476
+             "Z!travel_Yh" = 2555
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber7%~//new4!!!!!!!!
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber7%e08a~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber7%e08a~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 0
+             "Z!travel_Xh" = 31
+             "Z!travel_Yl" = 2976
+             "Z!travel_Yh" = 3455
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber9%~
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber9%w~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber9%w15~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4384
+             "Z!travel_Xh" = 4415
+             "Z!travel_Yl" = 624
+             "Z!travel_Yh" = 1331
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber9%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber9%w16~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber9%w16~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4384
+             "Z!travel_Xh" = 4415
+             "Z!travel_Yl" = 2364
+             "Z!travel_Yh" = 2891
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber9%~//changed!!!!!
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber9%w17~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber9%w17~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4384
+             "Z!travel_Xh" = 4415
+             "Z!travel_Yl" = 2124
+             "Z!travel_Yh" = 2243
+  END
+
+
+/////////////////////////////////////AR1300
+COPY_EXISTING_REGEXP ~%Z!AreaPrefix%%Z!AreaNumber9%.are~ ~override~
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber9%n18~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 2660
+             "Z!entrance_Ypos" = 136
+             "Z!entrance_face" = 14
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber9%w16~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 125
+             "Z!entrance_Ypos" = 2610
+             "Z!entrance_face" = 14
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber9%w17~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 633
+             "Z!entrance_Ypos" = 1824
+             "Z!entrance_face" = 10
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber6%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber6%s17~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber6%s17~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 608
+             "Z!travel_Xh" = 1231
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 24
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber6%~//new3!!!!!!!!
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber6%s17a~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber6%s17a~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 1344
+             "Z!travel_Xh" = 1488
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 24
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber6%~
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber6%s~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber6%s18~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 2016
+             "Z!travel_Xh" = 3087
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 24
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber8%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber8%e15~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber8%e15~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 0
+             "Z!travel_Xh" = 31
+             "Z!travel_Yl" = 480
+             "Z!travel_Yh" = 1127
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber8%~
+ SPRINT  "Z!entrance_name" ~Ext%Z!AreaNumber8%e~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber8%e16~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 0
+             "Z!travel_Xh" = 31
+             "Z!travel_Yl" = 2172
+             "Z!travel_Yh" = 2771
+  END
+
+ACTION_IF FILE_EXISTS_IN_GAME ~%Z!AreaPrefix%%Z!AreaNumberA%.are~
+          AND (FILE_CONTAINS_EVALUATED (~%Z!AreaPrefix%%Z!AreaNumberA%.are~ ~TravelSouth~))
+  THEN BEGIN
+/////////////////////////////////////AR1500
+COPY_EXISTING_REGEXP ~%Z!AreaPrefix%%Z!AreaNumberA%.are~ ~override~
+
+ SPRINT  "Z!entrance_name" ~Z!fromsouA~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 320
+             "Z!entrance_Ypos" = 3685
+             "Z!entrance_face" = 8
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!fromsouB~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 920
+             "Z!entrance_Ypos" = 3685
+             "Z!entrance_face" = 8
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!fromsouC~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 1464
+             "Z!entrance_Ypos" = 3685
+             "Z!entrance_face" = 8
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!fromsouD~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 1820
+             "Z!entrance_Ypos" = 3685
+             "Z!entrance_face" = 6
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!fromsouE~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 2570
+             "Z!entrance_Ypos" = 3685
+             "Z!entrance_face" = 10
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!fromsouF~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 2800
+             "Z!entrance_Ypos" = 3685
+             "Z!entrance_face" = 8
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!fromsouG~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 3870
+             "Z!entrance_Ypos" = 3723
+             "Z!entrance_face" = 6
+  END
+
+ LAUNCH_PATCH_FUNCTION ~ALTER_AREA_REGION~
+    STR_VAR  "region_name" = ~TravelSouth~
+             "entrance_name" = ~Z!fromnor1~
+  END
+
+ LAUNCH_PATCH_FUNCTION ~ALTER_AREA_REGION~
+    STR_VAR  "region_name" = ~TravelSouth2~
+             "entrance_name" = ~Z!fromnor2~
+  END
+
+ LAUNCH_PATCH_FUNCTION ~ALTER_AREA_REGION~
+    STR_VAR  "region_name" = ~TravelSouth4~
+             "entrance_name" = ~Z!fromnor4~
+  END
+
+ LAUNCH_PATCH_FUNCTION ~ALTER_AREA_REGION~
+    STR_VAR  "region_name" = ~TravelSouth5~
+             "entrance_name" = ~Z!fromnor5~
+  END
+
+ LAUNCH_PATCH_FUNCTION ~ALTER_AREA_REGION~
+    STR_VAR  "region_name" = ~TravelSouth6~
+             "entrance_name" = ~Z!fromnor6~
+  END
+
+ LAUNCH_PATCH_FUNCTION ~ALTER_AREA_REGION~
+    STR_VAR  "region_name" = ~TravelSouth7~
+             "entrance_name" = ~Z!fromnor7~
+  END
+
+/////////////////////////////////////AR2000
+COPY_EXISTING_REGEXP ~%Z!AreaPrefix%%Z!AreaNumberB%.are~ ~override~
+
+ SPRINT  "Z!entrance_name" ~Z!fromnor1~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 435
+             "Z!entrance_Ypos" = 124
+             "Z!entrance_face" = 0
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!fromnor2~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 1016
+             "Z!entrance_Ypos" = 124
+             "Z!entrance_face" = 0
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!fromnor4~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 1965
+             "Z!entrance_Ypos" = 124
+             "Z!entrance_face" = 0
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!fromnor5~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 2620
+             "Z!entrance_Ypos" = 124
+             "Z!entrance_face" = 0
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!fromnor6~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 2270
+             "Z!entrance_Ypos" = 124
+             "Z!entrance_face" = 0
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!fromnor7~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 3834
+             "Z!entrance_Ypos" = 124
+             "Z!entrance_face" = 0
+  END
+
+ LAUNCH_PATCH_FUNCTION ~ALTER_AREA_REGION~
+    STR_VAR  "region_name" = ~DoorNorthA~
+             "entrance_name" = ~Z!fromsouA~
+  END
+
+ LAUNCH_PATCH_FUNCTION ~ALTER_AREA_REGION~
+    STR_VAR  "region_name" = ~DoorNorthB~
+             "entrance_name" = ~Z!fromsouB~
+  END
+
+ LAUNCH_PATCH_FUNCTION ~ALTER_AREA_REGION~
+    STR_VAR  "region_name" = ~DoorNorthC~
+             "entrance_name" = ~Z!fromsouC~
+  END
+
+ LAUNCH_PATCH_FUNCTION ~ALTER_AREA_REGION~
+    STR_VAR  "region_name" = ~DoorNorthD~
+             "entrance_name" = ~Z!fromsouD~
+  END
+
+ LAUNCH_PATCH_FUNCTION ~ALTER_AREA_REGION~
+    STR_VAR  "region_name" = ~DoorNorthE~
+             "entrance_name" = ~Z!fromsouE~
+  END
+
+ LAUNCH_PATCH_FUNCTION ~ALTER_AREA_REGION~
+    STR_VAR  "region_name" = ~DoorNorthF~
+             "entrance_name" = ~Z!fromsouF~
+  END
+
+ LAUNCH_PATCH_FUNCTION ~ALTER_AREA_REGION~
+    STR_VAR  "region_name" = ~DoorNorthG~
+             "entrance_name" = ~Z!fromsouG~
+  END
+/////////////////////////////////////ACTION_IF
+  END
+
+
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+BEGIN @660003  //~Minimalistyczna wersja komponentu, umozliwia odwiedzenie dwoch oryginalnie niedostepnych zaulkow Wrot Baldura~
+SUBCOMPONENT @66
+DESIGNATED 661
+
+
+/////////////////////////////////////AR0100
+COPY_EXISTING_REGEXP ~%Z!AreaPrefix%%Z!AreaNumber1%.are~ ~override~
+
+//not needed in BGEE
+PATCH_IF NOT FILE_CONTAINS_EVALUATED (~%Z!AreaPrefix%%Z!AreaNumber1%.are~ ~Areatrans01~)
+  THEN BEGIN
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber1%e01~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 4100
+             "Z!entrance_Ypos" = 900
+             "Z!entrance_face" = 4
+  END
+  
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber2%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber2%w01~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber2%w01~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4256
+             "Z!travel_Xh" = 4287
+             "Z!travel_Yl" = 648
+             "Z!travel_Yh" = 1031
+  END
+END //PATCH_IF
+
+/////////////////////////////////////AR0200
+COPY_EXISTING_REGEXP ~%Z!AreaPrefix%%Z!AreaNumber2%.are~ ~override~
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber2%e11~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 4200
+             "Z!entrance_Ypos" = 3040
+             "Z!entrance_face" = 6
+  END
+
+//not needed in BGEE
+PATCH_IF NOT FILE_CONTAINS_EVALUATED (~%Z!AreaPrefix%%Z!AreaNumber2%.are~ ~Areatrans01~)
+  THEN BEGIN
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber2%w01~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 135
+             "Z!entrance_Ypos" = 900
+             "Z!entrance_face" = 12
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber1%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber1%e01~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber1%e01~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 0
+             "Z!travel_Xh" = 31
+             "Z!travel_Yl" = 624
+             "Z!travel_Yh" = 1187
+  END
+END //PATCH_IF
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber6%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber6%w11~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber6%w11a~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4384
+             "Z!travel_Xh" = 4415
+             "Z!travel_Yl" = 3012
+             "Z!travel_Yh" = 3199
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber6%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber6%w11~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber6%w11c~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4224
+             "Z!travel_Xh" = 4383
+             "Z!travel_Yl" = 3176
+             "Z!travel_Yh" = 3199
+  END
+
+/////////////////////////////////////AR0300
+COPY_EXISTING_REGEXP ~%Z!AreaPrefix%%Z!AreaNumber3%.are~ ~override~
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber3%s10~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 420
+             "Z!entrance_Ypos" = 3051
+             "Z!entrance_face" = 10
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber6%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber6%n10~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber6%n10~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 48
+             "Z!travel_Xh" = 575
+             "Z!travel_Yl" = 3176
+             "Z!travel_Yh" = 3199
+  END
+
+/////////////////////////////////////AR0700
+COPY_EXISTING_REGEXP ~%Z!AreaPrefix%%Z!AreaNumber5%.are~ ~override~
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%e12~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 4200
+             "Z!entrance_Ypos" = 980
+             "Z!entrance_face" = 2
+  END
+
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber6%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber6%w11~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber6%w11b~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4384
+             "Z!travel_Xh" = 4415
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 383
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber6%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber6%w12~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber6%w12~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 4384
+             "Z!travel_Xh" = 4415
+             "Z!travel_Yl" = 600
+             "Z!travel_Yh" = 1163
+  END
+
+/////////////////////////////////////AR0800
+COPY_EXISTING_REGEXP ~%Z!AreaPrefix%%Z!AreaNumber6%.are~ ~override~
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber6%n10~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 350
+             "Z!entrance_Ypos" = 148
+             "Z!entrance_face" = 0
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber6%w11~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 151
+             "Z!entrance_Ypos" = 80
+             "Z!entrance_face" = 12
+  END
+
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber6%w12~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_ENTRANCE~
+    INT_VAR  "Z!entrance_Xpos" = 151
+             "Z!entrance_Ypos" = 749
+             "Z!entrance_face" = 10
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber2%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber2%e11~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber2%e11b~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 0
+             "Z!travel_Xh" = 31
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 155
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber3%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber3%s10~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber3%s10~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 32
+             "Z!travel_Xh" = 639
+             "Z!travel_Yl" = 0
+             "Z!travel_Yh" = 23
+  END
+
+ SPRINT  "Z!entrance_area" ~%Z!AreaPrefix%%Z!AreaNumber5%~
+ SPRINT  "Z!entrance_name" ~Z!Exit%Z!AreaNumber5%e12~
+ SPRINT  "Z!travel_name" ~Z!Travel%Z!AreaNumber5%e12~
+ LAUNCH_PATCH_FUNCTION ~ADD_AREA_TRAVEL_SIMPLE~
+    INT_VAR  "Z!travel_Xl" = 0
+             "Z!travel_Xh" = 31
+             "Z!travel_Yl" = 672
+             "Z!travel_Yh" = 911
+  END
+
+
+
+//END OF FILE
